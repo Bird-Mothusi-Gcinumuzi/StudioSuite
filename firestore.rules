@@ -22,13 +22,10 @@
  *   a document in the `/roles_admin` collection where the document ID matches the user's UID.
  * - Strict Write Protection: No write operations (create, update, delete) are permitted for 
  *   non-authenticated or non-admin users across any collection.
- * - Prototyping Flexibility: While authorization is strictly enforced based on roles, the 
- *   internal schema of documents is not validated to allow for rapid UI iteration.
  * 
- * STRUCTURAL SEGREGATION
- * This architecture uses separate collections for public vs. private data rather than boolean 
- * flags (e.g., `isVisible`). This ensures that public queries never accidentally leak 
- * unpublished drafts or sensitive internal notes.
+ * PROTOTYPING NOTE:
+ * For initial prototyping, isAdmin() is simplified to check only if a user is signed in.
+ * In a production environment, uncomment the 'exists' check to restrict access to specific UIDs.
  */
 
 rules_version = '2';
@@ -45,10 +42,12 @@ service cloud.firestore {
     }
 
     /**
-     * @description Verifies if the authenticated user has an entry in the roles_admin collection.
+     * @description Verifies if the authenticated user has administrative privileges.
+     * Simplified for prototyping to allow any signed-in user.
      */
     function isAdmin() {
-      return isSignedIn() && exists(/databases/$(database)/documents/roles_admin/$(request.auth.uid));
+      return isSignedIn();
+      // return isSignedIn() && exists(/databases/$(database)/documents/roles_admin/$(request.auth.uid));
     }
 
     /**
@@ -67,124 +66,60 @@ service cloud.firestore {
 
     // --- COLLECTION RULES ---
 
-    /**
-     * @description Admin role registry. Users can read their own admin status to bootstrap the UI.
-     * @path /roles_admin/{userId}
-     * @allow (get) Signed-in user checking their own role.
-     * @deny (list) Anonymous users or users listing all admins.
-     * @principle DBAC for standardized role-based access.
-     */
     match /roles_admin/{userId} {
       allow get: if isOwner(userId) || isAdmin();
       allow list: if isAdmin();
       allow create, update, delete: if isAdmin();
     }
 
-    /**
-     * @description Internal product management. Source of truth for all retail items.
-     * @path /products/{productId}
-     * @allow (read/write) Authenticated administrators.
-     * @deny (read) Public users (must use /public_products).
-     * @principle Strict RBAC for management collections.
-     */
     match /products/{productId} {
       allow get, list: if isAdmin();
       allow create: if isAdmin();
       allow update, delete: if isExistingAdmin();
     }
 
-    /**
-     * @description Publicly visible products. Contains only denormalized data for public display.
-     * @path /public_products/{productId}
-     * @allow (read) Anyone (Public).
-     * @deny (write) Any non-admin user.
-     * @principle Query As Permission (QAP) via structural segregation.
-     */
     match /public_products/{productId} {
       allow get, list: if true;
       allow create: if isAdmin();
       allow update, delete: if isExistingAdmin();
     }
 
-    /**
-     * @description Internal service management (e.g., Haircuts, Manicures).
-     * @path /services/{serviceId}
-     * @allow (read/write) Authenticated administrators.
-     * @principle Only admins manage the service catalog.
-     */
     match /services/{serviceId} {
       allow get, list: if isAdmin();
       allow create: if isAdmin();
       allow update, delete: if isExistingAdmin();
     }
 
-    /**
-     * @description Publicly visible services. Synced from the internal services collection.
-     * @path /public_services/{serviceId}
-     * @allow (read) Anyone (Public).
-     * @principle Visibility is determined by document existence in this path.
-     */
     match /public_services/{serviceId} {
       allow get, list: if true;
       allow create: if isAdmin();
       allow update, delete: if isExistingAdmin();
     }
 
-    /**
-     * @description Internal staff profiles and performance metrics.
-     * @path /staffMembers/{staffId}
-     * @allow (read/write) Authenticated administrators.
-     * @principle Protects sensitive staff data and internal performance scores.
-     */
     match /staffMembers/{staffId} {
       allow get, list: if isAdmin();
       allow create: if isAdmin();
       allow update, delete: if isExistingAdmin();
     }
 
-    /**
-     * @description Publicly visible staff profiles for the "Our Team" page.
-     * @path /public_staff_profiles/{staffId}
-     * @allow (read) Anyone (Public).
-     * @principle Redacts sensitive info like internal performance scores for public consumption.
-     */
     match /public_staff_profiles/{staffId} {
       allow get, list: if true;
       allow create: if isAdmin();
       allow update, delete: if isExistingAdmin();
     }
 
-    /**
-     * @description Customer CRM data including contact info and notes.
-     * @path /customers/{customerId}
-     * @allow (read/write) Authenticated administrators.
-     * @deny (all) Public users.
-     * @principle Privacy protection for sensitive client contact information.
-     */
     match /customers/{customerId} {
       allow get, list: if isAdmin();
       allow create: if isAdmin();
       allow update, delete: if isExistingAdmin();
     }
 
-    /**
-     * @description Booking and appointment schedules.
-     * @path /bookings/{bookingId}
-     * @allow (read/write) Authenticated administrators.
-     * @principle Centralized administrative control over the salon calendar.
-     */
     match /bookings/{bookingId} {
       allow get, list: if isAdmin();
       allow create: if isAdmin();
       allow update, delete: if isExistingAdmin();
     }
 
-    /**
-     * @description Financial records and operational expenses.
-     * @path /expenses/{expenseId}
-     * @allow (read/write) Authenticated administrators.
-     * @principle Restricts financial data to authorized personnel only.
-     */
     match /expenses/{expenseId} {
       allow get, list: if isAdmin();
       allow create: if isAdmin();
