@@ -8,7 +8,8 @@ import {
   Package, 
   ArrowUpRight, 
   ArrowDownRight,
-  MoreVertical
+  MoreVertical,
+  Scissors
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { 
@@ -20,6 +21,8 @@ import {
   Tooltip as ChartTooltip,
   Cell
 } from "recharts"
+import { useCollection, useFirestore, useMemoFirebase } from "@/firebase"
+import { collection } from "firebase/firestore"
 
 const data = [
   { name: "Mon", total: 1200 },
@@ -31,48 +34,61 @@ const data = [
   { name: "Sun", total: 1500 },
 ]
 
-const stats = [
-  {
-    title: "Weekly Revenue",
-    value: "$15,340",
-    change: "+12.5%",
-    trend: "up",
-    icon: TrendingUp,
-    color: "text-primary"
-  },
-  {
-    title: "New Bookings",
-    value: "142",
-    change: "+8.2%",
-    trend: "up",
-    icon: Calendar,
-    color: "text-secondary"
-  },
-  {
-    title: "Active Staff",
-    value: "12",
-    change: "0%",
-    trend: "neutral",
-    icon: Users,
-    color: "text-blue-400"
-  },
-  {
-    title: "Low Stock",
-    value: "5 Items",
-    change: "-2",
-    trend: "down",
-    icon: Package,
-    color: "text-red-400"
-  }
-]
-
 export default function DashboardPage() {
+  const db = useFirestore()
+  
+  // Real-time counts for stats
+  const productsQuery = useMemoFirebase(() => collection(db, "products"), [db])
+  const servicesQuery = useMemoFirebase(() => collection(db, "services"), [db])
+  const staffQuery = useMemoFirebase(() => collection(db, "staffMembers"), [db])
+  const bookingsQuery = useMemoFirebase(() => collection(db, "bookings"), [db])
+
+  const { data: products } = useCollection(productsQuery)
+  const { data: services } = useCollection(servicesQuery)
+  const { data: staff } = useCollection(staffQuery)
+  const { data: bookings } = useCollection(bookingsQuery)
+
+  const stats = [
+    {
+      title: "Total Services",
+      value: services?.length || 0,
+      change: "Available Menu",
+      trend: "neutral",
+      icon: Scissors,
+      color: "text-primary"
+    },
+    {
+      title: "Active Bookings",
+      value: bookings?.length || 0,
+      change: "Scheduled",
+      trend: "up",
+      icon: Calendar,
+      color: "text-secondary"
+    },
+    {
+      title: "Studio Team",
+      value: staff?.length || 0,
+      change: "Active Members",
+      trend: "neutral",
+      icon: Users,
+      color: "text-blue-400"
+    },
+    {
+      title: "Product Stock",
+      value: products?.length || 0,
+      change: "Total Items",
+      trend: "up",
+      icon: Package,
+      color: "text-emerald-400"
+    }
+  ]
+
   return (
     <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
           <h2 className="text-3xl font-bold tracking-tight font-headline">Welcome back, Admin</h2>
-          <p className="text-muted-foreground">Here's what's happening in your studio today.</p>
+          <p className="text-muted-foreground">Here's a real-time overview of your studio's operations.</p>
         </div>
         <div className="flex gap-2">
           <Button variant="outline">Download Report</Button>
@@ -90,14 +106,7 @@ export default function DashboardPage() {
             <CardContent>
               <div className="text-2xl font-bold">{stat.value}</div>
               <p className="text-xs text-muted-foreground flex items-center gap-1 mt-1">
-                {stat.trend === "up" ? (
-                  <span className="text-green-500 flex items-center"><ArrowUpRight className="h-3 w-3" /> {stat.change}</span>
-                ) : stat.trend === "down" ? (
-                  <span className="text-red-500 flex items-center"><ArrowDownRight className="h-3 w-3" /> {stat.change}</span>
-                ) : (
-                  <span>{stat.change}</span>
-                )}
-                from last week
+                {stat.change}
               </p>
             </CardContent>
           </Card>
@@ -133,7 +142,7 @@ export default function DashboardPage() {
                     if (active && payload && payload.length) {
                       return (
                         <div className="bg-popover border border-border p-2 rounded-lg shadow-xl text-xs">
-                          <p className="font-bold">{payload[0].value}</p>
+                          <p className="font-bold">${payload[0].value}</p>
                         </div>
                       );
                     }
@@ -156,29 +165,27 @@ export default function DashboardPage() {
         <Card className="lg:col-span-3 border-border/50">
           <CardHeader>
             <CardTitle className="text-lg font-headline">Upcoming Bookings</CardTitle>
-            <CardDescription>You have 8 bookings today.</CardDescription>
+            <CardDescription>Real-time view of your upcoming schedule.</CardDescription>
           </CardHeader>
           <CardContent>
             <div className="space-y-6">
-              {[
-                { name: "Sarah Miller", service: "Balayage Highlight", time: "10:30 AM", stylist: "Emma W." },
-                { name: "Michael Chen", service: "Men's Fade", time: "11:45 AM", stylist: "David K." },
-                { name: "Jessica Alba", service: "Bridal Makeup", time: "1:00 PM", stylist: "Sophie L." },
-                { name: "Robert Downey", service: "Beard Trim", time: "2:30 PM", stylist: "David K." },
-              ].map((booking, i) => (
-                <div key={i} className="flex items-center gap-4 p-3 rounded-lg hover:bg-muted/30 transition-colors group">
-                  <div className="flex-1 space-y-1">
-                    <p className="text-sm font-medium leading-none">{booking.name}</p>
-                    <p className="text-xs text-muted-foreground">{booking.service} • {booking.stylist}</p>
+              {bookings && bookings.length > 0 ? (
+                bookings.slice(0, 4).map((booking: any, i: number) => (
+                  <div key={i} className="flex items-center gap-4 p-3 rounded-lg hover:bg-muted/30 transition-colors group">
+                    <div className="flex-1 space-y-1">
+                      <p className="text-sm font-medium leading-none">Booking #{booking.id.substring(0, 5)}</p>
+                      <p className="text-xs text-muted-foreground">{booking.status} • {booking.totalPrice}$</p>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-sm font-bold text-primary">{new Date(booking.bookingDateTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</p>
+                    </div>
                   </div>
-                  <div className="text-right">
-                    <p className="text-sm font-bold text-primary">{booking.time}</p>
-                    <Button variant="ghost" size="icon" className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity">
-                      <MoreVertical className="h-3 w-3" />
-                    </Button>
-                  </div>
+                ))
+              ) : (
+                <div className="text-center py-12 text-muted-foreground italic text-sm">
+                  No upcoming bookings found.
                 </div>
-              ))}
+              )}
             </div>
             <Button variant="link" className="w-full mt-4 text-primary hover:text-primary/80 no-underline">
               View all bookings
