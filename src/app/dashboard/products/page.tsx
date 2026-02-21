@@ -1,4 +1,3 @@
-
 "use client"
 
 import { useState } from "react"
@@ -11,39 +10,81 @@ import {
   TableRow 
 } from "@/components/ui/table"
 import { Button } from "@/components/ui/button"
-import { Badge } from "@/components/ui/badge"
 import { Switch } from "@/components/ui/switch"
 import { 
   Search, 
   Plus, 
   Edit, 
-  Trash2, 
-  Filter, 
-  Tag, 
-  Eye, 
-  Package,
-  Star
+  Trash2
 } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import Image from "next/image"
-import { initialProducts as data } from "@/lib/data"
+import { useCollection, useFirestore, useMemoFirebase, updateDocumentNonBlocking, setDocumentNonBlocking, deleteDocumentNonBlocking } from "@/firebase"
+import { collection, doc, serverTimestamp } from "firebase/firestore"
 
 export default function ProductsPage() {
-  const [products, setProducts] = useState(data)
+  const db = useFirestore()
   const [searchTerm, setSearchTerm] = useState("")
 
-  const toggleVisibility = (id: number) => {
-    setProducts(products.map(p => p.id === id ? { ...p, isVisible: !p.isVisible } : p))
+  const productsQuery = useMemoFirebase(() => collection(db, "products"), [db])
+  const { data: products, isLoading } = useCollection(productsQuery)
+
+  const syncToPublic = (product: any, isVisibleOverride?: boolean) => {
+    const isVisible = isVisibleOverride !== undefined ? isVisibleOverride : product.isVisible
+    const publicProductRef = doc(db, "public_products", product.id)
+
+    if (isVisible) {
+      setDocumentNonBlocking(publicProductRef, {
+        id: product.id,
+        name: product.name,
+        description: product.description || "",
+        price: product.price,
+        discountPercentage: product.discountPercentage || 0,
+        imageUrl: product.imageUrl || `https://picsum.photos/seed/${product.id}/400/400`,
+        brand: product.brand || "Studio Exclusive",
+        isFeatured: product.isFeatured || false,
+        updatedAt: serverTimestamp()
+      }, { merge: true })
+    } else {
+      deleteDocumentNonBlocking(publicProductRef)
+    }
   }
 
-  const toggleFeatured = (id: number) => {
-    setProducts(products.map(p => p.id === id ? { ...p, isFeatured: !p.isFeatured } : p))
+  const toggleVisibility = (product: any) => {
+    const newVisibility = !product.isVisible
+    const productRef = doc(db, "products", product.id)
+
+    updateDocumentNonBlocking(productRef, { 
+      isVisible: newVisibility,
+      updatedAt: serverTimestamp()
+    })
+
+    syncToPublic(product, newVisibility)
   }
 
-  const filteredProducts = products.filter(p => 
+  const toggleFeatured = (product: any) => {
+    const newFeatured = !product.isFeatured
+    const productRef = doc(db, "products", product.id)
+    
+    updateDocumentNonBlocking(productRef, { 
+      isFeatured: newFeatured,
+      updatedAt: serverTimestamp()
+    })
+
+    // Update public version too if it's currently visible
+    if (product.isVisible) {
+      syncToPublic({ ...product, isFeatured: newFeatured })
+    }
+  }
+
+  const filteredProducts = products?.filter(p => 
     p.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
-    p.brand.toLowerCase().includes(searchTerm.toLowerCase())
-  )
+    (p.brand && p.brand.toLowerCase().includes(searchTerm.toLowerCase()))
+  ) || []
+
+  if (isLoading) {
+    return <div className="p-8 text-center text-muted-foreground">Loading products...</div>
+  }
 
   return (
     <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
@@ -63,7 +104,7 @@ export default function ProductsPage() {
             <CardTitle className="text-sm font-medium text-muted-foreground uppercase">Featured Online</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{products.filter(p => p.isFeatured).length}</div>
+            <div className="text-2xl font-bold">{products?.filter(p => p.isFeatured).length || 0}</div>
           </CardContent>
         </Card>
         <Card className="bg-card/50 border-border/50">
@@ -71,7 +112,7 @@ export default function ProductsPage() {
             <CardTitle className="text-sm font-medium text-muted-foreground uppercase">Low Stock</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-red-400">{products.filter(p => p.stock < 5).length}</div>
+            <div className="text-2xl font-bold text-red-400">{products?.filter(p => p.stockQuantity < 5).length || 0}</div>
           </CardContent>
         </Card>
         <Card className="bg-card/50 border-border/50">
@@ -79,7 +120,7 @@ export default function ProductsPage() {
             <CardTitle className="text-sm font-medium text-muted-foreground uppercase">Total Products</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-primary">{products.length}</div>
+            <div className="text-2xl font-bold text-primary">{products?.length || 0}</div>
           </CardContent>
         </Card>
       </div>
@@ -88,7 +129,7 @@ export default function ProductsPage() {
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <input 
-            placeholder="Search products or brands..." 
+            placeholder="Search products..." 
             className="w-full bg-background/50 border-none rounded-md px-10 py-2 text-sm focus:ring-1 focus:ring-primary outline-none"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
@@ -114,7 +155,7 @@ export default function ProductsPage() {
                 <TableCell>
                   <div className="relative h-10 w-10 rounded overflow-hidden border border-border bg-muted">
                     <Image 
-                      src={product.image} 
+                      src={product.imageUrl || `https://picsum.photos/seed/${product.id}/400/400`} 
                       alt={product.name} 
                       fill 
                       className="object-cover"
@@ -123,19 +164,19 @@ export default function ProductsPage() {
                 </TableCell>
                 <TableCell>
                   <div className="font-medium">{product.name}</div>
-                  <div className="text-[10px] text-muted-foreground">{product.brand}</div>
+                  <div className="text-[10px] text-muted-foreground">{product.brand || "Studio Exclusive"}</div>
                 </TableCell>
                 <TableCell className="font-bold text-primary">${product.price}</TableCell>
                 <TableCell>
                   <Switch 
                     checked={product.isVisible} 
-                    onCheckedChange={() => toggleVisibility(product.id)}
+                    onCheckedChange={() => toggleVisibility(product)}
                   />
                 </TableCell>
                 <TableCell>
                   <Switch 
                     checked={product.isFeatured} 
-                    onCheckedChange={() => toggleFeatured(product.id)}
+                    onCheckedChange={() => toggleFeatured(product)}
                   />
                 </TableCell>
                 <TableCell className="text-right">

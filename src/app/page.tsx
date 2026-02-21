@@ -1,15 +1,34 @@
+"use client"
 
 import { PublicNav } from "@/components/public-nav"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
-import { initialServices, initialProducts } from "@/lib/data"
+import { useCollection, useFirestore, useMemoFirebase } from "@/firebase"
+import { collection, query, where, limit, orderBy } from "firebase/firestore"
 import { ArrowRight, Star, Sparkles, Scissors } from "lucide-react"
 import Link from "next/link"
 import Image from "next/image"
 
 export default function LandingPage() {
-  const featuredServices = initialServices.filter(s => s.isFeatured && s.isVisible)
-  const featuredProducts = initialProducts.filter(p => p.isFeatured && p.isVisible)
+  const db = useFirestore()
+  
+  // Query for featured items that are visible
+  const publicServicesQuery = useMemoFirebase(() => 
+    query(
+      collection(db, "public_services"), 
+      where("isFeatured", "==", true),
+      limit(3)
+    ), [db])
+
+  const publicProductsQuery = useMemoFirebase(() => 
+    query(
+      collection(db, "public_products"), 
+      where("isFeatured", "==", true),
+      limit(4)
+    ), [db])
+  
+  const { data: featuredServices } = useCollection(publicServicesQuery)
+  const { data: featuredProducts } = useCollection(publicProductsQuery)
 
   return (
     <div className="min-h-screen bg-background">
@@ -56,7 +75,7 @@ export default function LandingPage() {
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-            {featuredServices.map((service) => (
+            {featuredServices?.map((service) => (
               <Card key={service.id} className="bg-background/50 border-border/50 hover-lift overflow-hidden">
                 <CardContent className="p-8">
                   <div className="w-12 h-12 bg-primary/10 rounded-xl flex items-center justify-center mb-6">
@@ -67,12 +86,17 @@ export default function LandingPage() {
                     {service.description}
                   </p>
                   <div className="flex justify-between items-center">
-                    <span className="text-2xl font-bold text-primary">${service.price}</span>
-                    <span className="text-xs text-muted-foreground uppercase tracking-widest">{service.duration}</span>
+                    <span className="text-2xl font-bold text-primary">${service.basePrice || service.price}</span>
+                    <span className="text-xs text-muted-foreground uppercase tracking-widest">{service.durationMinutes || 60} MIN</span>
                   </div>
                 </CardContent>
               </Card>
             ))}
+            {(!featuredServices || featuredServices.length === 0) && (
+              <div className="col-span-full py-12 text-center text-muted-foreground">
+                Check back soon for our featured services.
+              </div>
+            )}
           </div>
         </div>
       </section>
@@ -86,26 +110,31 @@ export default function LandingPage() {
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
-            {featuredProducts.map((product) => (
+            {featuredProducts?.map((product) => (
               <div key={product.id} className="group cursor-pointer">
                 <div className="relative aspect-square rounded-2xl overflow-hidden mb-4 bg-muted border border-border/50">
                   <Image 
-                    src={product.image} 
+                    src={product.imageUrl || `https://picsum.photos/seed/${product.id}/400/400`} 
                     alt={product.name} 
                     fill 
                     className="object-cover group-hover:scale-110 transition-transform duration-500" 
                   />
-                  {product.discount > 0 && (
+                  {product.discountPercentage > 0 && (
                     <div className="absolute top-4 left-4 bg-secondary text-secondary-foreground text-[10px] font-bold px-2 py-1 rounded-full">
-                      {product.discount}% OFF
+                      {product.discountPercentage}% OFF
                     </div>
                   )}
                 </div>
                 <h3 className="font-bold mb-1">{product.name}</h3>
-                <p className="text-xs text-muted-foreground mb-2 uppercase tracking-tighter">{product.brand}</p>
+                <p className="text-xs text-muted-foreground mb-2 uppercase tracking-tighter">{product.brand || "Studio Exclusive"}</p>
                 <p className="text-primary font-bold">${product.price}</p>
               </div>
             ))}
+            {(!featuredProducts || featuredProducts.length === 0) && (
+              <div className="col-span-full py-12 text-center text-muted-foreground">
+                Discover our luxury product line soon.
+              </div>
+            )}
           </div>
         </div>
       </section>

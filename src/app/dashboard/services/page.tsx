@@ -1,4 +1,3 @@
-
 "use client"
 
 import { useState } from "react"
@@ -11,7 +10,6 @@ import {
   TableRow 
 } from "@/components/ui/table"
 import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
 import { Switch } from "@/components/ui/switch"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -20,39 +18,75 @@ import {
   Plus, 
   Edit, 
   Trash2, 
-  Clock, 
-  DollarSign, 
   Scissors, 
   Sparkles,
   Zap,
-  MoreHorizontal,
   Eye
 } from "lucide-react"
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu"
-import { initialServices as data } from "@/lib/data"
+import { useCollection, useFirestore, useMemoFirebase, updateDocumentNonBlocking, setDocumentNonBlocking, deleteDocumentNonBlocking } from "@/firebase"
+import { collection, doc, serverTimestamp } from "firebase/firestore"
 
 export default function ServicesPage() {
-  const [services, setServices] = useState(data)
+  const db = useFirestore()
   const [searchTerm, setSearchTerm] = useState("")
 
-  const filteredServices = services.filter(s => 
-    s.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
-    s.category.toLowerCase().includes(searchTerm.toLowerCase())
-  )
+  const servicesQuery = useMemoFirebase(() => collection(db, "services"), [db])
+  const { data: services, isLoading } = useCollection(servicesQuery)
 
-  const toggleVisibility = (id: number) => {
-    setServices(services.map(s => s.id === id ? { ...s, isVisible: !s.isVisible } : s))
+  const syncToPublic = (service: any, isVisibleOverride?: boolean) => {
+    const isVisible = isVisibleOverride !== undefined ? isVisibleOverride : service.isVisible
+    const publicServiceRef = doc(db, "public_services", service.id)
+
+    if (isVisible) {
+      setDocumentNonBlocking(publicServiceRef, {
+        id: service.id,
+        name: service.name,
+        description: service.description || "",
+        basePrice: service.basePrice || service.price || 0,
+        durationMinutes: service.durationMinutes || 60,
+        promotionalPrice: service.promotionalPrice || null,
+        category: service.category || "General",
+        isFeatured: service.isFeatured || false,
+        updatedAt: serverTimestamp()
+      }, { merge: true })
+    } else {
+      deleteDocumentNonBlocking(publicServiceRef)
+    }
   }
 
-  const toggleFeatured = (id: number) => {
-    setServices(services.map(s => s.id === id ? { ...s, isFeatured: !s.isFeatured } : s))
+  const toggleVisibility = (service: any) => {
+    const newVisibility = !service.isVisible
+    const serviceRef = doc(db, "services", service.id)
+
+    updateDocumentNonBlocking(serviceRef, { 
+      isVisible: newVisibility,
+      updatedAt: serverTimestamp()
+    })
+
+    syncToPublic(service, newVisibility)
+  }
+
+  const toggleFeatured = (service: any) => {
+    const newFeatured = !service.isFeatured
+    const serviceRef = doc(db, "services", service.id)
+    
+    updateDocumentNonBlocking(serviceRef, { 
+      isFeatured: newFeatured,
+      updatedAt: serverTimestamp()
+    })
+
+    if (service.isVisible) {
+      syncToPublic({ ...service, isFeatured: newFeatured })
+    }
+  }
+
+  const filteredServices = services?.filter(s => 
+    s.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
+    (s.category && s.category.toLowerCase().includes(searchTerm.toLowerCase()))
+  ) || []
+
+  if (isLoading) {
+    return <div className="p-8 text-center text-muted-foreground">Loading services...</div>
   }
 
   return (
@@ -69,9 +103,9 @@ export default function ServicesPage() {
 
       <div className="grid gap-4 md:grid-cols-3">
         {[
-          { title: "Total Services", value: services.length, icon: Scissors, color: "text-primary" },
-          { title: "Featured Items", value: services.filter(s => s.isFeatured).length, icon: Sparkles, color: "text-secondary" },
-          { title: "Publicly Visible", value: services.filter(s => s.isVisible).length, icon: Eye, color: "text-blue-400" },
+          { title: "Total Services", value: services?.length || 0, icon: Scissors, color: "text-primary" },
+          { title: "Featured Items", value: services?.filter(s => s.isFeatured).length || 0, icon: Sparkles, color: "text-secondary" },
+          { title: "Publicly Visible", value: services?.filter(s => s.isVisible).length || 0, icon: Eye, color: "text-blue-400" },
         ].map((stat) => (
           <Card key={stat.title} className="bg-card/30 border-border/50">
             <CardHeader className="flex flex-row items-center justify-between pb-2">
@@ -122,22 +156,22 @@ export default function ServicesPage() {
                 </TableCell>
                 <TableCell>
                   <Badge variant="outline" className="font-normal border-border/50 bg-background/50">
-                    {service.category}
+                    {service.category || "General"}
                   </Badge>
                 </TableCell>
                 <TableCell className="font-mono text-primary font-bold">
-                  ${service.price}
+                  ${service.basePrice || service.price || 0}
                 </TableCell>
                 <TableCell>
                   <Switch 
                     checked={service.isVisible} 
-                    onCheckedChange={() => toggleVisibility(service.id)}
+                    onCheckedChange={() => toggleVisibility(service)}
                   />
                 </TableCell>
                 <TableCell>
                   <Switch 
                     checked={service.isFeatured} 
-                    onCheckedChange={() => toggleFeatured(service.id)}
+                    onCheckedChange={() => toggleFeatured(service)}
                   />
                 </TableCell>
                 <TableCell className="text-right">
