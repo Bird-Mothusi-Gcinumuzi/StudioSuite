@@ -1,0 +1,28 @@
+{
+  "placeholderImages": [
+    {
+      "id": "stylist-1",
+      "description": "Professional hair stylist working in a modern studio",
+      "imageUrl": "https://picsum.photos/seed/stylist1/400/400",
+      "imageHint": "stylist portrait"
+    },
+    {
+      "id": "stylist-2",
+      "description": "Expert makeup artist applying beauty products",
+      "imageUrl": "https://picsum.photos/seed/stylist2/400/400",
+      "imageHint": "makeup artist"
+    },
+    {
+      "id": "product-1",
+      "description": "Premium hair care product bottle",
+      "imageUrl": "https://picsum.photos/seed/haircare/400/400",
+      "imageHint": "shampoo bottle"
+    },
+    {
+      "id": "product-2",
+      "description": "Professional salon tools set",
+      "imageUrl": "https://picsum.photos/seed/salon-tools/400/400",
+      "imageHint": "scissors comb"
+    }
+  ]
+}
