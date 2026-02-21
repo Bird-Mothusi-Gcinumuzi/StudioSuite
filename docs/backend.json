@@ -1,0 +1,471 @@
+{
+  "entities": {
+    "Product": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Product",
+      "type": "object",
+      "description": "Represents a retail product available for sale in the salon, including inventory, pricing, and visibility settings.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the Product entity."
+        },
+        "name": {
+          "type": "string",
+          "description": "The name of the retail product."
+        },
+        "description": {
+          "type": "string",
+          "description": "A detailed description of the product, including its features and benefits."
+        },
+        "price": {
+          "type": "number",
+          "description": "The standard selling price of the product."
+        },
+        "stockQuantity": {
+          "type": "number",
+          "description": "The current number of units of this product available in stock."
+        },
+        "discountPercentage": {
+          "type": "number",
+          "description": "The percentage discount applied to the product, ranging from 0 to 100."
+        },
+        "isVisible": {
+          "type": "boolean",
+          "description": "A flag indicating whether the product is visible and available for purchase on public-facing pages."
+        },
+        "imageUrl": {
+          "type": "string",
+          "description": "The URL of the product's image for display on public pages.",
+          "format": "uri"
+        },
+        "createdAt": {
+          "type": "string",
+          "description": "The date and time when the product record was created.",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "description": "The date and time when the product record was last updated.",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "price",
+        "stockQuantity",
+        "isVisible"
+      ]
+    },
+    "Service": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Service",
+      "type": "object",
+      "description": "Represents a salon service offered to clients, including its description, pricing, and promotional details.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the Service entity."
+        },
+        "name": {
+          "type": "string",
+          "description": "The name of the salon service (e.g., 'Haircut', 'Manicure')."
+        },
+        "description": {
+          "type": "string",
+          "description": "A detailed description of the service offered."
+        },
+        "basePrice": {
+          "type": "number",
+          "description": "The standard price for this service."
+        },
+        "durationMinutes": {
+          "type": "number",
+          "description": "The estimated duration of the service in minutes."
+        },
+        "promotionalPrice": {
+          "type": "number",
+          "description": "A special reduced price for the service during a promotion, if applicable."
+        },
+        "isVisible": {
+          "type": "boolean",
+          "description": "A flag indicating whether the service is visible and available for booking on public-facing pages."
+        },
+        "createdAt": {
+          "type": "string",
+          "description": "The date and time when the service record was created.",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "description": "The date and time when the service record was last updated.",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "basePrice",
+        "durationMinutes",
+        "isVisible"
+      ]
+    },
+    "StaffMember": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "StaffMember",
+      "type": "object",
+      "description": "Represents a staff member working at the salon, including their profile, role, specialties, and performance metrics.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the StaffMember entity."
+        },
+        "firstName": {
+          "type": "string",
+          "description": "The first name of the staff member."
+        },
+        "lastName": {
+          "type": "string",
+          "description": "The last name of the staff member."
+        },
+        "email": {
+          "type": "string",
+          "description": "The email address of the staff member.",
+          "format": "email"
+        },
+        "phoneNumber": {
+          "type": "string",
+          "description": "The phone number of the staff member."
+        },
+        "role": {
+          "type": "string",
+          "description": "The role or position of the staff member (e.g., 'Stylist', 'Nail Technician')."
+        },
+        "specialtyIds": {
+          "type": "array",
+          "description": "References to Services that this staff member specializes in. (Relationship: StaffMember N:N Service)",
+          "items": {
+            "type": "string"
+          }
+        },
+        "bio": {
+          "type": "string",
+          "description": "A short biography or professional summary of the staff member."
+        },
+        "profileImageUrl": {
+          "type": "string",
+          "description": "The URL of the staff member's profile picture for public display.",
+          "format": "uri"
+        },
+        "performanceScore": {
+          "type": "number",
+          "description": "A numerical score reflecting the staff member's performance (e.g., based on ratings or booking completion)."
+        },
+        "isActive": {
+          "type": "boolean",
+          "description": "A flag indicating whether the staff member is currently active and available for bookings."
+        },
+        "createdAt": {
+          "type": "string",
+          "description": "The date and time when the staff member record was created.",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "description": "The date and time when the staff member record was last updated.",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "id",
+        "firstName",
+        "lastName",
+        "email",
+        "role",
+        "isActive"
+      ]
+    },
+    "Customer": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Customer",
+      "type": "object",
+      "description": "Represents a client who utilizes salon services or purchases products, storing their contact information.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the Customer entity."
+        },
+        "firstName": {
+          "type": "string",
+          "description": "The first name of the customer."
+        },
+        "lastName": {
+          "type": "string",
+          "description": "The last name of the customer."
+        },
+        "email": {
+          "type": "string",
+          "description": "The email address of the customer.",
+          "format": "email"
+        },
+        "phoneNumber": {
+          "type": "string",
+          "description": "The phone number of the customer."
+        },
+        "notes": {
+          "type": "string",
+          "description": "Internal notes about the customer, such as preferences or important details."
+        },
+        "createdAt": {
+          "type": "string",
+          "description": "The date and time when the customer record was created.",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "description": "The date and time when the customer record was last updated.",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "id",
+        "firstName",
+        "lastName",
+        "email"
+      ]
+    },
+    "Booking": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Booking",
+      "type": "object",
+      "description": "Represents a scheduled appointment for a service, linking a customer, staff member, and service with specific time and status details.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the Booking entity."
+        },
+        "customerId": {
+          "type": "string",
+          "description": "Reference to the Customer who made the booking. (Relationship: Customer 1:N Booking)"
+        },
+        "staffMemberId": {
+          "type": "string",
+          "description": "Reference to the StaffMember assigned to perform the service. (Relationship: StaffMember 1:N Booking)"
+        },
+        "serviceId": {
+          "type": "string",
+          "description": "Reference to the Service that is being booked. (Relationship: Service 1:N Booking)"
+        },
+        "bookingDateTime": {
+          "type": "string",
+          "description": "The exact date and time when the booking is scheduled.",
+          "format": "date-time"
+        },
+        "durationMinutes": {
+          "type": "number",
+          "description": "The planned duration of the booking in minutes."
+        },
+        "status": {
+          "type": "string",
+          "description": "The current status of the booking (e.g., 'Pending', 'Confirmed', 'Completed', 'Cancelled', 'No-Show')."
+        },
+        "totalPrice": {
+          "type": "number",
+          "description": "The final calculated total price for the booked service(s)."
+        },
+        "notes": {
+          "type": "string",
+          "description": "Any special notes or requests provided for this booking."
+        },
+        "createdAt": {
+          "type": "string",
+          "description": "The date and time when the booking record was created.",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "description": "The date and time when the booking record was last updated.",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "id",
+        "customerId",
+        "staffMemberId",
+        "serviceId",
+        "bookingDateTime",
+        "durationMinutes",
+        "status",
+        "totalPrice"
+      ]
+    },
+    "Expense": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Expense",
+      "type": "object",
+      "description": "Records operational expenses for financial tracking and analytics within the salon.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the Expense entity."
+        },
+        "description": {
+          "type": "string",
+          "description": "A brief description or purpose of the expense."
+        },
+        "amount": {
+          "type": "number",
+          "description": "The monetary amount of the expense incurred."
+        },
+        "expenseDate": {
+          "type": "string",
+          "description": "The date when the expense occurred.",
+          "format": "date"
+        },
+        "category": {
+          "type": "string",
+          "description": "The classification of the expense (e.g., 'Rent', 'Supplies', 'Utilities')."
+        },
+        "notes": {
+          "type": "string",
+          "description": "Any additional details or context for the expense."
+        },
+        "createdAt": {
+          "type": "string",
+          "description": "The date and time when the expense record was created.",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "description": "The date and time when the expense record was last updated.",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "id",
+        "description",
+        "amount",
+        "expenseDate",
+        "category"
+      ]
+    }
+  },
+  "auth": {
+    "providers": [
+      "password",
+      "anonymous"
+    ]
+  },
+  "firestore": {
+    "structure": [
+      {
+        "path": "/roles_admin/{userId}",
+        "definition": {
+          "entityName": "user",
+          "schema": {
+            "$ref": "#/backend/entities/StaffMember"
+          },
+          "description": "Admin role collection. The existence of a document here with the user's UID grants administrative privileges. This supports DBAC by standardizing role-based access without custom claims. The document itself may be empty or contain minimal data like a timestamp.",
+          "params": [
+            {
+              "name": "userId",
+              "description": "The unique ID of the user who has an admin role."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/products",
+        "definition": {
+          "entityName": "Product",
+          "schema": {
+            "$ref": "#/backend/entities/Product"
+          },
+          "description": "Internal management collection for all retail products, including drafts and those not yet visible to the public. Accessible only by authenticated administrators."
+        }
+      },
+      {
+        "path": "/public_products",
+        "definition": {
+          "entityName": "Product",
+          "schema": {
+            "$ref": "#/backend/entities/Product"
+          },
+          "description": "Publicly accessible collection for products marked as 'isVisible: true'. Documents in this collection are denormalized copies of the relevant fields from the /products collection, specifically curated for public display. This collection allows world-readable access and adheres to QAPs, as only truly visible products exist here. Contains relevant fields for public display (e.g., id, name, description, price, discountPercentage, imageUrl)."
+        }
+      },
+      {
+        "path": "/services",
+        "definition": {
+          "entityName": "Service",
+          "schema": {
+            "$ref": "#/backend/entities/Service"
+          },
+          "description": "Internal management collection for all salon services, including drafts and those not yet visible to the public. Accessible only by authenticated administrators."
+        }
+      },
+      {
+        "path": "/public_services",
+        "definition": {
+          "entityName": "Service",
+          "schema": {
+            "$ref": "#/backend/entities/Service"
+          },
+          "description": "Publicly accessible collection for services marked as 'isVisible: true'. Documents in this collection are denormalized copies of the relevant fields from the /services collection, specifically curated for public display. This collection allows world-readable access and adheres to QAPs. Contains relevant fields for public display (e.g., id, name, description, basePrice, promotionalPrice, durationMinutes)."
+        }
+      },
+      {
+        "path": "/staffMembers",
+        "definition": {
+          "entityName": "StaffMember",
+          "schema": {
+            "$ref": "#/backend/entities/StaffMember"
+          },
+          "description": "Internal management collection for all staff member profiles, including inactive staff. Accessible only by authenticated administrators."
+        }
+      },
+      {
+        "path": "/public_staff_profiles",
+        "definition": {
+          "entityName": "StaffMember",
+          "schema": {
+            "$ref": "#/backend/entities/StaffMember"
+          },
+          "description": "Publicly accessible collection for staff members marked as 'isActive: true' and who have a public profile. Documents here are denormalized copies of relevant fields from the /staffMembers collection, specifically for public display. This collection allows world-readable access and adheres to QAPs. Contains relevant fields for public display (e.g., id, firstName, lastName, role, bio, profileImageUrl, specialtyIds)."
+        }
+      },
+      {
+        "path": "/customers",
+        "definition": {
+          "entityName": "Customer",
+          "schema": {
+            "$ref": "#/backend/entities/Customer"
+          },
+          "description": "Internal management collection for all customer records. Accessible only by authenticated administrators. Stores sensitive customer contact information."
+        }
+      },
+      {
+        "path": "/bookings",
+        "definition": {
+          "entityName": "Booking",
+          "schema": {
+            "$ref": "#/backend/entities/Booking"
+          },
+          "description": "Internal management collection for all service bookings. Accessible only by authenticated administrators. Critical for booking management and performance analytics."
+        }
+      },
+      {
+        "path": "/expenses",
+        "definition": {
+          "entityName": "Expense",
+          "schema": {
+            "$ref": "#/backend/entities/Expense"
+          },
+          "description": "Internal management collection for all salon operational expenses. Accessible only by authenticated administrators. Used for financial tracking."
+        }
+      }
+    ],
+    "reasoning": "The core issue highlighted by the user's complaint ('WHY ARE THE PUBLIC PAGES NOT UPDATING AS PER THE RESPECTIVE DASHBOARD PAGES AND THEIR SELECTIONS?') points to a crucial need for clear segregation and efficient synchronization between internal management data and public-facing content. My recommendation addresses this by strictly adhering to the **Structural Segregation** and **Authorization Independence via Denormalization** principles.\n\n**Authorization Independence via Denormalization:**\nTo ensure public pages always reflect the correct published state and to avoid complex security rules dependent on parent document attributes or sensitive flags, we will denormalize all public-facing data into dedicated top-level collections. For instance, `products` (internal management) and `public_products` (publicly visible). When an administrator updates a product in the `products` collection and toggles its `isVisible` status, the application logic (e.g., a Cloud Function or a carefully managed client-side transaction) will be responsible for either creating/updating a corresponding document in `public_products` or deleting it. This means the `public_products` collection *only* contains products that are intended to be visible to the public. The `isVisible` field itself is not needed in the `public_products` document because its very presence in that collection implies visibility. This eliminates the need for `get()` calls in security rules to check parent `isVisible` flags or to filter subcollections, thereby maintaining Authorization Independence and simplifying rule logic.\n\n**Support for QAPs (Query As Permission):**\nBy creating separate `public_products`, `public_services`, and `public_staff_profiles` collections, we directly enable the QAP principle. Security rules for these public collections can be as simple as `allow read: if true;`. This is because the *structure itself* guarantees that only public-appropriate data resides in these collections. Any query (a `list` operation) against `/public_products` will *only* return products that have been explicitly published by an administrator. There is no risk of exposing private drafts or unpublished items, as they simply do not exist in the public collections. This makes `list` operations secure, efficient, and ensures that public pages correctly reflect dashboard selections without any data leakage or performance overhead from rule-based filtering. The dashboard-managed collections (`products`, `services`, `staffMembers`, `customers`, `bookings`, `expenses`) are protected by requiring `request.auth.uid` and an admin role check (`get(/databases/$(database)/documents/roles_admin/$(request.auth.uid)).exists()`). This clear separation of concerns makes the system highly debuggable and robust."
+  }
+}
