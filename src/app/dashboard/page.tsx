@@ -1,3 +1,4 @@
+
 "use client"
 
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
@@ -9,7 +10,8 @@ import {
   ArrowUpRight, 
   ArrowDownRight,
   MoreVertical,
-  Scissors
+  Scissors,
+  Database
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { 
@@ -21,8 +23,9 @@ import {
   Tooltip as ChartTooltip,
   Cell
 } from "recharts"
-import { useCollection, useFirestore, useMemoFirebase } from "@/firebase"
-import { collection } from "firebase/firestore"
+import { useCollection, useFirestore, useMemoFirebase, setDocumentNonBlocking } from "@/firebase"
+import { collection, doc, serverTimestamp } from "firebase/firestore"
+import { toast } from "@/hooks/use-toast"
 
 const data = [
   { name: "Mon", total: 1200 },
@@ -37,7 +40,6 @@ const data = [
 export default function DashboardPage() {
   const db = useFirestore()
   
-  // Real-time counts for stats
   const productsQuery = useMemoFirebase(() => collection(db, "products"), [db])
   const servicesQuery = useMemoFirebase(() => collection(db, "services"), [db])
   const staffQuery = useMemoFirebase(() => collection(db, "staffMembers"), [db])
@@ -48,39 +50,37 @@ export default function DashboardPage() {
   const { data: staff } = useCollection(staffQuery)
   const { data: bookings } = useCollection(bookingsQuery)
 
+  const handleSeedData = () => {
+    // Seed Sample Services
+    const sampleServices = [
+      { id: "ser-1", name: "Master Color Transformation", description: "Bespoke coloring using premium Italian pigments.", basePrice: 280, durationMinutes: 180, isVisible: true, isFeatured: true, category: "Color" },
+      { id: "ser-2", name: "Sculpted Precision Cut", description: "Architectural hair design tailored to your silhouette.", basePrice: 120, durationMinutes: 60, isVisible: true, isFeatured: false, category: "Haircuts" },
+      { id: "ser-3", name: "Luxury Scalp Therapy", description: "Ozone-infused scalp treatment with organic oils.", basePrice: 95, durationMinutes: 45, isVisible: true, isFeatured: true, category: "Scalp" }
+    ]
+
+    // Seed Sample Products
+    const sampleProducts = [
+      { id: "prod-1", name: "Elixir No. 9", description: "Rare argan oil infusion for instant radiance.", price: 65, stockQuantity: 24, isVisible: true, isFeatured: true, brand: "Studio Royale" },
+      { id: "prod-2", name: "Silk Repair Masque", description: "Deep conditioning with hydrolyzed silk proteins.", price: 48, stockQuantity: 12, isVisible: true, isFeatured: true, brand: "Studio Royale" }
+    ]
+
+    // Seed Sample Staff
+    const sampleStaff = [
+      { id: "staff-1", firstName: "Julien", lastName: "Vane", role: "Creative Director", isActive: true, performanceScore: 98, bio: "Master of color and light with 15 years in luxury hair design." }
+    ]
+
+    sampleServices.forEach(s => setDocumentNonBlocking(doc(db, "services", s.id), { ...s, createdAt: serverTimestamp() }, { merge: true }))
+    sampleProducts.forEach(p => setDocumentNonBlocking(doc(db, "products", p.id), { ...p, createdAt: serverTimestamp() }, { merge: true }))
+    sampleStaff.forEach(st => setDocumentNonBlocking(doc(db, "staffMembers", st.id), { ...st, createdAt: serverTimestamp() }, { merge: true }))
+
+    toast({ title: "Studio Seeded", description: "Sample luxury data has been added to your collections." })
+  }
+
   const stats = [
-    {
-      title: "Total Services",
-      value: services?.length || 0,
-      change: "Available Menu",
-      trend: "neutral",
-      icon: Scissors,
-      color: "text-primary"
-    },
-    {
-      title: "Active Bookings",
-      value: bookings?.length || 0,
-      change: "Scheduled",
-      trend: "up",
-      icon: Calendar,
-      color: "text-secondary"
-    },
-    {
-      title: "Studio Team",
-      value: staff?.length || 0,
-      change: "Active Members",
-      trend: "neutral",
-      icon: Users,
-      color: "text-blue-400"
-    },
-    {
-      title: "Product Stock",
-      value: products?.length || 0,
-      change: "Total Items",
-      trend: "up",
-      icon: Package,
-      color: "text-emerald-400"
-    }
+    { title: "Total Services", value: services?.length || 0, change: "Available Menu", trend: "neutral", icon: Scissors, color: "text-primary" },
+    { title: "Active Bookings", value: bookings?.length || 0, change: "Scheduled", trend: "up", icon: Calendar, color: "text-secondary" },
+    { title: "Studio Team", value: staff?.length || 0, change: "Active Members", trend: "neutral", icon: Users, color: "text-blue-400" },
+    { title: "Product Stock", value: products?.length || 0, change: "Total Items", trend: "up", icon: Package, color: "text-emerald-400" }
   ]
 
   return (
@@ -91,7 +91,11 @@ export default function DashboardPage() {
           <p className="text-muted-foreground">Here's a real-time overview of your studio's operations.</p>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline">Download Report</Button>
+          {(!products || products.length === 0) && (
+            <Button variant="outline" onClick={handleSeedData} className="border-primary/50 text-primary">
+              <Database className="mr-2 h-4 w-4" /> Seed Sample Data
+            </Button>
+          )}
           <Button className="bg-primary text-primary-foreground hover:bg-primary/90">New Booking</Button>
         </div>
       </div>
@@ -122,20 +126,8 @@ export default function DashboardPage() {
           <CardContent className="h-[300px] w-full mt-4">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={data}>
-                <XAxis 
-                  dataKey="name" 
-                  stroke="#888888" 
-                  fontSize={12} 
-                  tickLine={false} 
-                  axisLine={false} 
-                />
-                <YAxis
-                  stroke="#888888"
-                  fontSize={12}
-                  tickLine={false}
-                  axisLine={false}
-                  tickFormatter={(value) => `$${value}`}
-                />
+                <XAxis dataKey="name" stroke="#888888" fontSize={12} tickLine={false} axisLine={false} />
+                <YAxis stroke="#888888" fontSize={12} tickLine={false} axisLine={false} tickFormatter={(value) => `$${value}`} />
                 <ChartTooltip 
                   cursor={{fill: 'rgba(255,255,255,0.05)'}}
                   content={({ active, payload }) => {
@@ -151,10 +143,7 @@ export default function DashboardPage() {
                 />
                 <Bar dataKey="total" radius={[4, 4, 0, 0]}>
                    {data.map((entry, index) => (
-                    <Cell 
-                      key={`cell-${index}`} 
-                      fill={entry.total > 3000 ? "hsl(var(--primary))" : "hsl(var(--secondary))"} 
-                    />
+                    <Cell key={`cell-${index}`} fill={entry.total > 3000 ? "hsl(var(--primary))" : "hsl(var(--secondary))"} />
                   ))}
                 </Bar>
               </BarChart>

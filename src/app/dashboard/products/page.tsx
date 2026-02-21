@@ -1,3 +1,4 @@
+
 "use client"
 
 import { useState } from "react"
@@ -18,13 +19,25 @@ import {
   Trash2
 } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
 import Image from "next/image"
 import { useCollection, useFirestore, useMemoFirebase, updateDocumentNonBlocking, setDocumentNonBlocking, deleteDocumentNonBlocking } from "@/firebase"
 import { collection, doc, serverTimestamp } from "firebase/firestore"
+import { toast } from "@/hooks/use-toast"
 
 export default function ProductsPage() {
   const db = useFirestore()
   const [searchTerm, setSearchTerm] = useState("")
+  const [isAddDialogOpen, setIsAddDialogOpen] = useState(false)
+  const [newProduct, setNewProduct] = useState({
+    name: "",
+    price: "",
+    stockQuantity: "",
+    brand: "Studio Exclusive",
+    description: ""
+  })
 
   const productsQuery = useMemoFirebase(() => collection(db, "products"), [db])
   const { data: products, isLoading } = useCollection(productsQuery)
@@ -38,7 +51,7 @@ export default function ProductsPage() {
         id: product.id,
         name: product.name,
         description: product.description || "",
-        price: product.price,
+        price: Number(product.price),
         discountPercentage: product.discountPercentage || 0,
         imageUrl: product.imageUrl || `https://picsum.photos/seed/${product.id}/400/400`,
         brand: product.brand || "Studio Exclusive",
@@ -48,6 +61,31 @@ export default function ProductsPage() {
     } else {
       deleteDocumentNonBlocking(publicProductRef)
     }
+  }
+
+  const handleAddProduct = () => {
+    if (!newProduct.name || !newProduct.price) {
+      toast({ variant: "destructive", title: "Missing details", description: "Name and price are required." })
+      return
+    }
+
+    const productId = `prod-${Date.now()}`
+    const productData = {
+      id: productId,
+      name: newProduct.name,
+      price: Number(newProduct.price),
+      stockQuantity: Number(newProduct.stockQuantity) || 0,
+      brand: newProduct.brand,
+      description: newProduct.description,
+      isVisible: false,
+      isFeatured: false,
+      createdAt: serverTimestamp()
+    }
+
+    setDocumentNonBlocking(doc(db, "products", productId), productData, { merge: true })
+    setIsAddDialogOpen(false)
+    setNewProduct({ name: "", price: "", stockQuantity: "", brand: "Studio Exclusive", description: "" })
+    toast({ title: "Product Added", description: `${newProduct.name} is now in your inventory.` })
   }
 
   const toggleVisibility = (product: any) => {
@@ -71,7 +109,6 @@ export default function ProductsPage() {
       updatedAt: serverTimestamp()
     })
 
-    // Update public version too if it's currently visible
     if (product.isVisible) {
       syncToPublic({ ...product, isFeatured: newFeatured })
     }
@@ -93,9 +130,42 @@ export default function ProductsPage() {
           <h2 className="text-3xl font-bold tracking-tight font-headline">Product Inventory</h2>
           <p className="text-muted-foreground">Manage retail products and homepage features.</p>
         </div>
-        <Button className="bg-primary text-primary-foreground hover:bg-primary/90">
-          <Plus className="mr-2 h-4 w-4" /> Add Product
-        </Button>
+        
+        <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
+          <DialogTrigger asChild>
+            <Button className="bg-primary text-primary-foreground hover:bg-primary/90">
+              <Plus className="mr-2 h-4 w-4" /> Add Product
+            </Button>
+          </DialogTrigger>
+          <DialogContent className="sm:max-w-[425px]">
+            <DialogHeader>
+              <DialogTitle>Add New Product</DialogTitle>
+            </DialogHeader>
+            <div className="grid gap-4 py-4">
+              <div className="grid gap-2">
+                <Label htmlFor="name">Product Name</Label>
+                <Input id="name" value={newProduct.name} onChange={(e) => setNewProduct({...newProduct, name: e.target.value})} />
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="grid gap-2">
+                  <Label htmlFor="price">Price ($)</Label>
+                  <Input id="price" type="number" value={newProduct.price} onChange={(e) => setNewProduct({...newProduct, price: e.target.value})} />
+                </div>
+                <div className="grid gap-2">
+                  <Label htmlFor="stock">Stock Quantity</Label>
+                  <Input id="stock" type="number" value={newProduct.stockQuantity} onChange={(e) => setNewProduct({...newProduct, stockQuantity: e.target.value})} />
+                </div>
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="brand">Brand</Label>
+                <Input id="brand" value={newProduct.brand} onChange={(e) => setNewProduct({...newProduct, brand: e.target.value})} />
+              </div>
+            </div>
+            <DialogFooter>
+              <Button onClick={handleAddProduct}>Create Product</Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </div>
 
       <div className="grid gap-4 md:grid-cols-3">
@@ -181,16 +251,20 @@ export default function ProductsPage() {
                 </TableCell>
                 <TableCell className="text-right">
                   <div className="flex justify-end gap-1">
-                    <Button variant="ghost" size="icon" className="h-8 w-8">
-                      <Edit className="h-4 w-4" />
-                    </Button>
-                    <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive">
+                    <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => deleteDocumentNonBlocking(doc(db, "products", product.id))}>
                       <Trash2 className="h-4 w-4" />
                     </Button>
                   </div>
                 </TableCell>
               </TableRow>
             ))}
+            {filteredProducts.length === 0 && (
+              <TableRow>
+                <TableCell colSpan={6} className="text-center py-12 text-muted-foreground italic">
+                  No products found. Start by adding your luxury inventory.
+                </TableCell>
+              </TableRow>
+            )}
           </TableBody>
         </Table>
       </Card>
