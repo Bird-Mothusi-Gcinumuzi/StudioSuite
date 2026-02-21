@@ -1,3 +1,4 @@
+
 "use client"
 
 import Link from "next/link"
@@ -10,8 +11,7 @@ import {
   CalendarCheck, 
   Users, 
   TrendingUp,
-  Settings,
-  ScissorsLineDashed
+  Settings
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import {
@@ -72,7 +72,7 @@ export function DashboardNav() {
       <SidebarHeader className="p-4">
         <div className="flex items-center gap-3">
           <div className="bg-primary p-2 rounded-lg">
-            <ScissorsLineDashed className="w-6 h-6 text-primary-foreground" />
+            <Scissors className="w-6 h-6 text-primary-foreground" />
           </div>
           {state === "expanded" && (
             <span className="text-xl font-bold tracking-tight font-headline">
