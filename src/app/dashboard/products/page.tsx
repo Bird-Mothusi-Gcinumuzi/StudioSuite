@@ -22,6 +22,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { Textarea } from "@/components/ui/textarea"
 import Image from "next/image"
 import { useCollection, useFirestore, useMemoFirebase, updateDocumentNonBlocking, setDocumentNonBlocking, deleteDocumentNonBlocking } from "@/firebase"
 import { collection, doc, serverTimestamp } from "firebase/firestore"
@@ -31,12 +32,16 @@ export default function ProductsPage() {
   const db = useFirestore()
   const [searchTerm, setSearchTerm] = useState("")
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false)
-  const [newProduct, setNewProduct] = useState({
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false)
+  const [editingProduct, setEditingProduct] = useState<any>(null)
+
+  const [formData, setFormData] = useState({
     name: "",
     price: "",
     stockQuantity: "",
     brand: "Studio Exclusive",
-    description: ""
+    description: "",
+    imageUrl: ""
   })
 
   const productsQuery = useMemoFirebase(() => collection(db, "products"), [db])
@@ -64,7 +69,7 @@ export default function ProductsPage() {
   }
 
   const handleAddProduct = () => {
-    if (!newProduct.name || !newProduct.price) {
+    if (!formData.name || !formData.price) {
       toast({ variant: "destructive", title: "Missing details", description: "Name and price are required." })
       return
     }
@@ -72,11 +77,9 @@ export default function ProductsPage() {
     const productId = `prod-${Date.now()}`
     const productData = {
       id: productId,
-      name: newProduct.name,
-      price: Number(newProduct.price),
-      stockQuantity: Number(newProduct.stockQuantity) || 0,
-      brand: newProduct.brand,
-      description: newProduct.description,
+      ...formData,
+      price: Number(formData.price),
+      stockQuantity: Number(formData.stockQuantity) || 0,
       isVisible: false,
       isFeatured: false,
       createdAt: serverTimestamp()
@@ -84,8 +87,62 @@ export default function ProductsPage() {
 
     setDocumentNonBlocking(doc(db, "products", productId), productData, { merge: true })
     setIsAddDialogOpen(false)
-    setNewProduct({ name: "", price: "", stockQuantity: "", brand: "Studio Exclusive", description: "" })
-    toast({ title: "Product Added", description: `${newProduct.name} is now in your inventory.` })
+    resetForm()
+    toast({ title: "Product Added", description: `${formData.name} is now in your inventory.` })
+  }
+
+  const handleEditProduct = () => {
+    if (!editingProduct) return
+
+    const updatedData = {
+      ...formData,
+      price: Number(formData.price),
+      stockQuantity: Number(formData.stockQuantity) || 0,
+      updatedAt: serverTimestamp()
+    }
+
+    updateDocumentNonBlocking(doc(db, "products", editingProduct.id), updatedData)
+
+    if (editingProduct.isVisible) {
+      syncToPublic({ ...editingProduct, ...updatedData })
+    }
+
+    setIsEditDialogOpen(false)
+    setEditingProduct(null)
+    resetForm()
+    toast({ title: "Product Updated", description: "Changes saved successfully." })
+  }
+
+  const handleDeleteProduct = (product: any) => {
+    if (confirm(`Are you sure you want to delete ${product.name}?`)) {
+      deleteDocumentNonBlocking(doc(db, "products", product.id))
+      deleteDocumentNonBlocking(doc(db, "public_products", product.id))
+      toast({ title: "Product Deleted", description: "Product has been removed from inventory." })
+    }
+  }
+
+  const resetForm = () => {
+    setFormData({
+      name: "",
+      price: "",
+      stockQuantity: "",
+      brand: "Studio Exclusive",
+      description: "",
+      imageUrl: ""
+    })
+  }
+
+  const startEdit = (product: any) => {
+    setEditingProduct(product)
+    setFormData({
+      name: product.name,
+      price: String(product.price),
+      stockQuantity: String(product.stockQuantity || 0),
+      brand: product.brand || "Studio Exclusive",
+      description: product.description || "",
+      imageUrl: product.imageUrl || ""
+    })
+    setIsEditDialogOpen(true)
   }
 
   const toggleVisibility = (product: any) => {
@@ -144,29 +201,70 @@ export default function ProductsPage() {
             <div className="grid gap-4 py-4">
               <div className="grid gap-2">
                 <Label htmlFor="name">Product Name</Label>
-                <Input id="name" value={newProduct.name} onChange={(e) => setNewProduct({...newProduct, name: e.target.value})} />
+                <Input id="name" value={formData.name} onChange={(e) => setFormData({...formData, name: e.target.value})} />
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div className="grid gap-2">
                   <Label htmlFor="price">Price ($)</Label>
-                  <Input id="price" type="number" value={newProduct.price} onChange={(e) => setNewProduct({...newProduct, price: e.target.value})} />
+                  <Input id="price" type="number" value={formData.price} onChange={(e) => setFormData({...formData, price: e.target.value})} />
                 </div>
                 <div className="grid gap-2">
                   <Label htmlFor="stock">Stock Quantity</Label>
-                  <Input id="stock" type="number" value={newProduct.stockQuantity} onChange={(e) => setNewProduct({...newProduct, stockQuantity: e.target.value})} />
+                  <Input id="stock" type="number" value={formData.stockQuantity} onChange={(e) => setFormData({...formData, stockQuantity: e.target.value})} />
                 </div>
               </div>
               <div className="grid gap-2">
                 <Label htmlFor="brand">Brand</Label>
-                <Input id="brand" value={newProduct.brand} onChange={(e) => setNewProduct({...newProduct, brand: e.target.value})} />
+                <Input id="brand" value={formData.brand} onChange={(e) => setFormData({...formData, brand: e.target.value})} />
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="description">Description</Label>
+                <Textarea id="description" value={formData.description} onChange={(e) => setFormData({...formData, description: e.target.value})} />
               </div>
             </div>
             <DialogFooter>
+              <Button variant="outline" onClick={() => setIsAddDialogOpen(false)}>Cancel</Button>
               <Button onClick={handleAddProduct}>Create Product</Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>
       </div>
+
+      <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle>Edit Product</DialogTitle>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid gap-2">
+              <Label htmlFor="edit-name">Product Name</Label>
+              <Input id="edit-name" value={formData.name} onChange={(e) => setFormData({...formData, name: e.target.value})} />
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="grid gap-2">
+                <Label htmlFor="edit-price">Price ($)</Label>
+                <Input id="edit-price" type="number" value={formData.price} onChange={(e) => setFormData({...formData, price: e.target.value})} />
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="edit-stock">Stock Quantity</Label>
+                <Input id="edit-stock" type="number" value={formData.stockQuantity} onChange={(e) => setFormData({...formData, stockQuantity: e.target.value})} />
+              </div>
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="edit-brand">Brand</Label>
+              <Input id="edit-brand" value={formData.brand} onChange={(e) => setFormData({...formData, brand: e.target.value})} />
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="edit-description">Description</Label>
+              <Textarea id="edit-description" value={formData.description} onChange={(e) => setFormData({...formData, description: e.target.value})} />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsEditDialogOpen(false)}>Cancel</Button>
+            <Button onClick={handleEditProduct}>Save Changes</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <div className="grid gap-4 md:grid-cols-3">
         <Card className="bg-card/50 border-border/50">
@@ -251,7 +349,10 @@ export default function ProductsPage() {
                 </TableCell>
                 <TableCell className="text-right">
                   <div className="flex justify-end gap-1">
-                    <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => deleteDocumentNonBlocking(doc(db, "products", product.id))}>
+                    <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => startEdit(product)}>
+                      <Edit className="h-4 w-4" />
+                    </Button>
+                    <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:bg-destructive/10" onClick={() => handleDeleteProduct(product)}>
                       <Trash2 className="h-4 w-4" />
                     </Button>
                   </div>

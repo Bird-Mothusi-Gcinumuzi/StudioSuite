@@ -8,13 +8,16 @@ import { getFirestore } from 'firebase/firestore'
 export function initializeFirebase() {
   if (!getApps().length) {
     let firebaseApp;
-    try {
-      firebaseApp = initializeApp();
-    } catch (e) {
-      if (process.env.NODE_ENV === "production") {
-        console.warn('Automatic initialization failed. Falling back to firebase config object.', e);
-      }
+    // Always use config if available to avoid errors during static generation
+    if (firebaseConfig && firebaseConfig.apiKey) {
       firebaseApp = initializeApp(firebaseConfig);
+    } else {
+      try {
+        firebaseApp = initializeApp();
+      } catch (e) {
+        console.error('Firebase initialization failed. No config found.', e);
+        throw e;
+      }
     }
     return getSdks(firebaseApp);
   }

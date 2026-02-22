@@ -21,9 +21,28 @@ import {
 import Image from "next/image"
 import { useCollection, useFirestore, useMemoFirebase, updateDocumentNonBlocking, setDocumentNonBlocking, deleteDocumentNonBlocking } from "@/firebase"
 import { collection, doc, serverTimestamp } from "firebase/firestore"
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { Textarea } from "@/components/ui/textarea"
+import { toast } from "@/hooks/use-toast"
 
 export default function StaffPage() {
   const db = useFirestore()
+  const [isAddDialogOpen, setIsAddDialogOpen] = useState(false)
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false)
+  const [editingMember, setEditingMember] = useState<any>(null)
+
+  const [formData, setFormData] = useState({
+    firstName: "",
+    lastName: "",
+    role: "",
+    bio: "",
+    email: "",
+    phone: "",
+    performanceScore: "85"
+  })
+
   const staffQuery = useMemoFirebase(() => collection(db, "staffMembers"), [db])
   const { data: staff, isLoading } = useCollection(staffQuery)
 
@@ -39,13 +58,88 @@ export default function StaffPage() {
         role: member.role,
         bio: member.bio || "",
         profileImageUrl: member.profileImageUrl || `https://picsum.photos/seed/${member.id}/400/400`,
-        specialtyIds: member.specialtyIds || [],
-        performanceScore: member.performanceScore || 0,
+        performanceScore: Number(member.performanceScore) || 0,
         updatedAt: serverTimestamp()
       }, { merge: true })
     } else {
       deleteDocumentNonBlocking(publicProfileRef)
     }
+  }
+
+  const handleAddMember = () => {
+    if (!formData.firstName || !formData.lastName || !formData.role) {
+      toast({ variant: "destructive", title: "Missing fields", description: "Name and role are required." })
+      return
+    }
+
+    const memberId = `staff-${Date.now()}`
+    const memberData = {
+      id: memberId,
+      ...formData,
+      performanceScore: Number(formData.performanceScore),
+      isActive: false,
+      createdAt: serverTimestamp()
+    }
+
+    setDocumentNonBlocking(doc(db, "staffMembers", memberId), memberData, { merge: true })
+    setIsAddDialogOpen(false)
+    resetForm()
+    toast({ title: "Staff Member Added", description: `${formData.firstName} has joined the team.` })
+  }
+
+  const handleEditMember = () => {
+    if (!editingMember) return
+
+    const updatedData = {
+      ...formData,
+      performanceScore: Number(formData.performanceScore),
+      updatedAt: serverTimestamp()
+    }
+
+    updateDocumentNonBlocking(doc(db, "staffMembers", editingMember.id), updatedData)
+
+    if (editingMember.isActive) {
+      syncToPublic({ ...editingMember, ...updatedData })
+    }
+
+    setIsEditDialogOpen(false)
+    setEditingMember(null)
+    resetForm()
+    toast({ title: "Profile Updated", description: "Staff details saved successfully." })
+  }
+
+  const handleDeleteMember = (member: any) => {
+    if (confirm(`Are you sure you want to remove ${member.firstName} ${member.lastName}?`)) {
+      deleteDocumentNonBlocking(doc(db, "staffMembers", member.id))
+      deleteDocumentNonBlocking(doc(db, "public_staff_profiles", member.id))
+      toast({ title: "Member Removed", description: "Staff member has been deleted." })
+    }
+  }
+
+  const resetForm = () => {
+    setFormData({
+      firstName: "",
+      lastName: "",
+      role: "",
+      bio: "",
+      email: "",
+      phone: "",
+      performanceScore: "85"
+    })
+  }
+
+  const startEdit = (member: any) => {
+    setEditingMember(member)
+    setFormData({
+      firstName: member.firstName,
+      lastName: member.lastName,
+      role: member.role,
+      bio: member.bio || "",
+      email: member.email || "",
+      phone: member.phone || "",
+      performanceScore: String(member.performanceScore || 85)
+    })
+    setIsEditDialogOpen(true)
   }
 
   const toggleActive = (member: any) => {
@@ -71,10 +165,90 @@ export default function StaffPage() {
           <h2 className="text-3xl font-bold tracking-tight font-headline">Staff Management</h2>
           <p className="text-muted-foreground">Manage your team, track performance, and assign roles.</p>
         </div>
-        <Button className="bg-primary text-primary-foreground hover:bg-primary/90">
-          <Plus className="mr-2 h-4 w-4" /> Recruit New Member
-        </Button>
+
+        <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
+          <DialogTrigger asChild>
+            <Button className="bg-primary text-primary-foreground hover:bg-primary/90">
+              <Plus className="mr-2 h-4 w-4" /> Recruit New Member
+            </Button>
+          </DialogTrigger>
+          <DialogContent className="sm:max-w-[500px]">
+            <DialogHeader>
+              <DialogTitle>Recruit Staff Member</DialogTitle>
+            </DialogHeader>
+            <div className="grid gap-4 py-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div className="grid gap-2">
+                  <Label htmlFor="firstName">First Name</Label>
+                  <Input id="firstName" value={formData.firstName} onChange={(e) => setFormData({...formData, firstName: e.target.value})} />
+                </div>
+                <div className="grid gap-2">
+                  <Label htmlFor="lastName">Last Name</Label>
+                  <Input id="lastName" value={formData.lastName} onChange={(e) => setFormData({...formData, lastName: e.target.value})} />
+                </div>
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="role">Role</Label>
+                <Input id="role" value={formData.role} onChange={(e) => setFormData({...formData, role: e.target.value})} placeholder="e.g. Master Stylist" />
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="grid gap-2">
+                  <Label htmlFor="email">Email</Label>
+                  <Input id="email" type="email" value={formData.email} onChange={(e) => setFormData({...formData, email: e.target.value})} />
+                </div>
+                <div className="grid gap-2">
+                  <Label htmlFor="phone">Phone</Label>
+                  <Input id="phone" value={formData.phone} onChange={(e) => setFormData({...formData, phone: e.target.value})} />
+                </div>
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="bio">Bio</Label>
+                <Textarea id="bio" value={formData.bio} onChange={(e) => setFormData({...formData, bio: e.target.value})} />
+              </div>
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setIsAddDialogOpen(false)}>Cancel</Button>
+              <Button onClick={handleAddMember}>Create Profile</Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </div>
+
+      <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+        <DialogContent className="sm:max-w-[500px]">
+          <DialogHeader>
+            <DialogTitle>Edit Staff Member</DialogTitle>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div className="grid gap-2">
+                <Label htmlFor="edit-firstName">First Name</Label>
+                <Input id="edit-firstName" value={formData.firstName} onChange={(e) => setFormData({...formData, firstName: e.target.value})} />
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="edit-lastName">Last Name</Label>
+                <Input id="edit-lastName" value={formData.lastName} onChange={(e) => setFormData({...formData, lastName: e.target.value})} />
+              </div>
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="edit-role">Role</Label>
+              <Input id="edit-role" value={formData.role} onChange={(e) => setFormData({...formData, role: e.target.value})} />
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="edit-bio">Bio</Label>
+              <Textarea id="edit-bio" value={formData.bio} onChange={(e) => setFormData({...formData, bio: e.target.value})} />
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="edit-score">Performance Score (%)</Label>
+              <Input id="edit-score" type="number" value={formData.performanceScore} onChange={(e) => setFormData({...formData, performanceScore: e.target.value})} />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsEditDialogOpen(false)}>Cancel</Button>
+            <Button onClick={handleEditMember}>Save Changes</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
         {staff?.map((member) => (
@@ -138,10 +312,10 @@ export default function StaffPage() {
               </div>
             </CardContent>
             <CardFooter className="pt-0 gap-2">
-              <Button variant="outline" size="sm" className="flex-1 group/btn">
+              <Button variant="outline" size="sm" className="flex-1 group/btn" onClick={() => startEdit(member)}>
                 Edit <ChevronRight className="ml-1 h-3 w-3 group-hover/btn:translate-x-1 transition-transform" />
               </Button>
-              <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive">
+              <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:bg-destructive/10" onClick={() => handleDeleteMember(member)}>
                 <Trash2 className="h-4 w-4" />
               </Button>
             </CardFooter>

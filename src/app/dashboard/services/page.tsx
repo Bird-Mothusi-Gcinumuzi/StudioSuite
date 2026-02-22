@@ -21,14 +21,32 @@ import {
   Scissors, 
   Sparkles,
   Zap,
-  Eye
+  Eye,
+  Clock,
+  DollarSign
 } from "lucide-react"
 import { useCollection, useFirestore, useMemoFirebase, updateDocumentNonBlocking, setDocumentNonBlocking, deleteDocumentNonBlocking } from "@/firebase"
 import { collection, doc, serverTimestamp } from "firebase/firestore"
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { Textarea } from "@/components/ui/textarea"
+import { toast } from "@/hooks/use-toast"
 
 export default function ServicesPage() {
   const db = useFirestore()
   const [searchTerm, setSearchTerm] = useState("")
+  const [isAddDialogOpen, setIsAddDialogOpen] = useState(false)
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false)
+  const [editingService, setEditingService] = useState<any>(null)
+
+  const [formData, setFormData] = useState({
+    name: "",
+    description: "",
+    basePrice: "",
+    durationMinutes: "60",
+    category: "General"
+  })
 
   const servicesQuery = useMemoFirebase(() => collection(db, "services"), [db])
   const { data: services, isLoading } = useCollection(servicesQuery)
@@ -42,9 +60,8 @@ export default function ServicesPage() {
         id: service.id,
         name: service.name,
         description: service.description || "",
-        basePrice: service.basePrice || service.price || 0,
-        durationMinutes: service.durationMinutes || 60,
-        promotionalPrice: service.promotionalPrice || null,
+        basePrice: Number(service.basePrice) || 0,
+        durationMinutes: Number(service.durationMinutes) || 60,
         category: service.category || "General",
         isFeatured: service.isFeatured || false,
         updatedAt: serverTimestamp()
@@ -52,6 +69,82 @@ export default function ServicesPage() {
     } else {
       deleteDocumentNonBlocking(publicServiceRef)
     }
+  }
+
+  const handleAddService = () => {
+    if (!formData.name || !formData.basePrice) {
+      toast({ variant: "destructive", title: "Missing fields", description: "Name and price are required." })
+      return
+    }
+
+    const serviceId = `svc-${Date.now()}`
+    const serviceData = {
+      id: serviceId,
+      ...formData,
+      basePrice: Number(formData.basePrice),
+      durationMinutes: Number(formData.durationMinutes),
+      isVisible: false,
+      isFeatured: false,
+      createdAt: serverTimestamp()
+    }
+
+    setDocumentNonBlocking(doc(db, "services", serviceId), serviceData, { merge: true })
+    setIsAddDialogOpen(false)
+    resetForm()
+    toast({ title: "Service Created", description: `${formData.name} has been added to your menu.` })
+  }
+
+  const handleEditService = () => {
+    if (!editingService) return
+
+    const updatedData = {
+      ...formData,
+      basePrice: Number(formData.basePrice),
+      durationMinutes: Number(formData.durationMinutes),
+      updatedAt: serverTimestamp()
+    }
+
+    updateDocumentNonBlocking(doc(db, "services", editingService.id), updatedData)
+
+    // Update public record if visible
+    if (editingService.isVisible) {
+      syncToPublic({ ...editingService, ...updatedData })
+    }
+
+    setIsEditDialogOpen(false)
+    setEditingService(null)
+    resetForm()
+    toast({ title: "Service Updated", description: "Changes saved successfully." })
+  }
+
+  const handleDeleteService = (service: any) => {
+    if (confirm(`Are you sure you want to delete ${service.name}?`)) {
+      deleteDocumentNonBlocking(doc(db, "services", service.id))
+      deleteDocumentNonBlocking(doc(db, "public_services", service.id))
+      toast({ title: "Service Deleted", description: "Service has been removed from your menu." })
+    }
+  }
+
+  const resetForm = () => {
+    setFormData({
+      name: "",
+      description: "",
+      basePrice: "",
+      durationMinutes: "60",
+      category: "General"
+    })
+  }
+
+  const startEdit = (service: any) => {
+    setEditingService(service)
+    setFormData({
+      name: service.name,
+      description: service.description || "",
+      basePrice: String(service.basePrice || service.price || ""),
+      durationMinutes: String(service.durationMinutes || 60),
+      category: service.category || "General"
+    })
+    setIsEditDialogOpen(true)
   }
 
   const toggleVisibility = (service: any) => {
@@ -96,10 +189,85 @@ export default function ServicesPage() {
           <h2 className="text-3xl font-bold tracking-tight font-headline">Service Menu</h2>
           <p className="text-muted-foreground">Manage your menu, visibility, and homepage highlights.</p>
         </div>
-        <Button className="bg-primary text-primary-foreground hover:bg-primary/90">
-          <Plus className="mr-2 h-4 w-4" /> Create Service
-        </Button>
+
+        <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
+          <DialogTrigger asChild>
+            <Button className="bg-primary text-primary-foreground hover:bg-primary/90">
+              <Plus className="mr-2 h-4 w-4" /> Create Service
+            </Button>
+          </DialogTrigger>
+          <DialogContent className="sm:max-w-[500px]">
+            <DialogHeader>
+              <DialogTitle>Create New Service</DialogTitle>
+            </DialogHeader>
+            <div className="grid gap-4 py-4">
+              <div className="grid gap-2">
+                <Label htmlFor="name">Service Name</Label>
+                <Input id="name" value={formData.name} onChange={(e) => setFormData({...formData, name: e.target.value})} placeholder="e.g. Signature Haircut" />
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="grid gap-2">
+                  <Label htmlFor="price">Base Price ($)</Label>
+                  <Input id="price" type="number" value={formData.basePrice} onChange={(e) => setFormData({...formData, basePrice: e.target.value})} />
+                </div>
+                <div className="grid gap-2">
+                  <Label htmlFor="duration">Duration (min)</Label>
+                  <Input id="duration" type="number" value={formData.durationMinutes} onChange={(e) => setFormData({...formData, durationMinutes: e.target.value})} />
+                </div>
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="category">Category</Label>
+                <Input id="category" value={formData.category} onChange={(e) => setFormData({...formData, category: e.target.value})} />
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="description">Description</Label>
+                <Textarea id="description" value={formData.description} onChange={(e) => setFormData({...formData, description: e.target.value})} placeholder="Describe the service..." />
+              </div>
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setIsAddDialogOpen(false)}>Cancel</Button>
+              <Button onClick={handleAddService}>Create Service</Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </div>
+
+      {/* Edit Dialog */}
+      <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+        <DialogContent className="sm:max-w-[500px]">
+          <DialogHeader>
+            <DialogTitle>Edit Service</DialogTitle>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid gap-2">
+              <Label htmlFor="edit-name">Service Name</Label>
+              <Input id="edit-name" value={formData.name} onChange={(e) => setFormData({...formData, name: e.target.value})} />
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="grid gap-2">
+                <Label htmlFor="edit-price">Base Price ($)</Label>
+                <Input id="edit-price" type="number" value={formData.basePrice} onChange={(e) => setFormData({...formData, basePrice: e.target.value})} />
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="edit-duration">Duration (min)</Label>
+                <Input id="edit-duration" type="number" value={formData.durationMinutes} onChange={(e) => setFormData({...formData, durationMinutes: e.target.value})} />
+              </div>
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="edit-category">Category</Label>
+              <Input id="edit-category" value={formData.category} onChange={(e) => setFormData({...formData, category: e.target.value})} />
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="edit-description">Description</Label>
+              <Textarea id="edit-description" value={formData.description} onChange={(e) => setFormData({...formData, description: e.target.value})} />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsEditDialogOpen(false)}>Cancel</Button>
+            <Button onClick={handleEditService}>Save Changes</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <div className="grid gap-4 md:grid-cols-3">
         {[
@@ -176,16 +344,23 @@ export default function ServicesPage() {
                 </TableCell>
                 <TableCell className="text-right">
                   <div className="flex justify-end gap-1">
-                    <Button variant="ghost" size="icon" className="h-8 w-8">
+                    <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => startEdit(service)}>
                       <Edit className="h-4 w-4" />
                     </Button>
-                    <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:bg-destructive/10">
+                    <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:bg-destructive/10" onClick={() => handleDeleteService(service)}>
                       <Trash2 className="h-4 w-4" />
                     </Button>
                   </div>
                 </TableCell>
               </TableRow>
             ))}
+            {filteredServices.length === 0 && (
+              <TableRow>
+                <TableCell colSpan={6} className="text-center py-12 text-muted-foreground italic">
+                  No services found.
+                </TableCell>
+              </TableRow>
+            )}
           </TableBody>
         </Table>
       </Card>
