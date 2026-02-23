@@ -1,14 +1,18 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { usePathname } from 'next/navigation';
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
+import { toast } from '@/hooks/use-toast';
 
 /**
  * An invisible component that listens for globally emitted 'permission-error' events.
- * It throws any received error to be caught by Next.js's global-error.tsx.
+ * It throws any received error to be caught by Next.js's global-error.tsx if in dashboard,
+ * otherwise it shows a toast.
  */
 export function FirebaseErrorListener() {
+  const pathname = usePathname();
   // Use the specific error type for the state for type safety.
   const [error, setError] = useState<FirestorePermissionError | null>(null);
 
@@ -29,9 +33,14 @@ export function FirebaseErrorListener() {
     };
   }, []);
 
-  // On re-render, if an error exists in state, throw it.
+  // On re-render, if an error exists in state, throw it if in dashboard.
   if (error) {
-    throw error;
+    if (pathname?.startsWith('/dashboard')) {
+      throw error;
+    } else {
+      // Just log for public pages to avoid crashing the whole site
+      console.warn("Firestore Permission Error in public page:", error.message);
+    }
   }
 
   // This component renders nothing.

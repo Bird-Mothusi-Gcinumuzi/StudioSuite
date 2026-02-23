@@ -39,6 +39,16 @@ const data = [
 
 export default function DashboardPage() {
   const db = useFirestore()
+
+  const formatTime = (dateTime: any) => {
+    if (!dateTime) return "N/A"
+    try {
+      const date = typeof dateTime.toDate === 'function' ? dateTime.toDate() : new Date(dateTime)
+      return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+    } catch (e) {
+      return "N/A"
+    }
+  }
   
   const productsQuery = useMemoFirebase(() => collection(db, "products"), [db])
   const servicesQuery = useMemoFirebase(() => collection(db, "services"), [db])
@@ -166,7 +176,7 @@ export default function DashboardPage() {
                       <p className="text-xs text-muted-foreground">{booking.status} • {booking.totalPrice}$</p>
                     </div>
                     <div className="text-right">
-                      <p className="text-sm font-bold text-primary">{new Date(booking.bookingDateTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</p>
+                      <p className="text-sm font-bold text-primary">{formatTime(booking.bookingDateTime)}</p>
                     </div>
                   </div>
                 ))

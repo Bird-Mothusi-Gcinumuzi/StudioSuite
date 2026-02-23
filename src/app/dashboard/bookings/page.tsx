@@ -20,6 +20,16 @@ export default function BookingsPage() {
   const bookingsQuery = useMemoFirebase(() => collection(db, "bookings"), [db])
   const { data: bookings, isLoading } = useCollection(bookingsQuery)
 
+  const formatDateTime = (dateTime: any) => {
+    if (!dateTime) return "N/A"
+    try {
+      const date = typeof dateTime.toDate === 'function' ? dateTime.toDate() : new Date(dateTime)
+      return date.toLocaleString()
+    } catch (e) {
+      return "Invalid Date"
+    }
+  }
+
   return (
     <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
       <div className="flex justify-between items-center">
@@ -69,7 +79,7 @@ export default function BookingsPage() {
               bookings?.map((booking) => (
                 <TableRow key={booking.id}>
                   <TableCell className="font-mono text-xs">#{booking.id.substring(0, 8)}</TableCell>
-                  <TableCell>{new Date(booking.bookingDateTime).toLocaleString()}</TableCell>
+                  <TableCell>{formatDateTime(booking.bookingDateTime)}</TableCell>
                   <TableCell>{booking.serviceId}</TableCell>
                   <TableCell>
                     <Badge variant={booking.status === 'confirmed' ? 'default' : 'secondary'}>

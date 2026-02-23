@@ -13,8 +13,26 @@ export default function DashboardLayout({
 }: {
   children: React.ReactNode
 }) {
-  const { user, isUserLoading } = useUser()
+  const { user, isUserLoading, userError } = useUser()
   const auth = useAuth()
+
+  if (userError) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-background p-4">
+        <Card className="w-full max-w-md border-destructive/50 bg-destructive/10">
+          <CardHeader className="text-center">
+            <CardTitle className="text-xl font-bold">Session Error</CardTitle>
+            <CardDescription>{userError.message}</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Button onClick={() => window.location.reload()} className="w-full">
+              Reload Page
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+    )
+  }
 
   if (isUserLoading) {
     return (

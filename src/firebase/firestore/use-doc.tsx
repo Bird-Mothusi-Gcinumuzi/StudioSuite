@@ -81,8 +81,10 @@ export function useDoc<T = any>(
         setData(null)
         setIsLoading(false)
 
-        // trigger global error propagation
-        errorEmitter.emit('permission-error', contextualError);
+        // Only emit if it's a permission denied error
+        if (error.code === 'permission-denied') {
+          errorEmitter.emit('permission-error', contextualError);
+        }
       }
     );
 
