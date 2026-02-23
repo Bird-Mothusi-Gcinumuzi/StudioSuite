@@ -112,8 +112,8 @@ export function useCollection<T = any>(
 
     return () => unsubscribe();
   }, [memoizedTargetRefOrQuery]); // Re-run if the target query/reference changes.
-  if(memoizedTargetRefOrQuery && !memoizedTargetRefOrQuery.__memo) {
-    throw new Error(memoizedTargetRefOrQuery + ' was not properly memoized using useMemoFirebase');
+  if(memoizedTargetRefOrQuery && !memoizedTargetRefOrQuery.__memo && process.env.NODE_ENV !== 'production') {
+    console.warn('useCollection: query was not properly memoized using useMemoFirebase. This may cause infinite re-renders.', memoizedTargetRefOrQuery);
   }
   return { data, isLoading, error };
 }

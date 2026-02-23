@@ -91,5 +91,9 @@ export function useDoc<T = any>(
     return () => unsubscribe();
   }, [memoizedDocRef]); // Re-run if the memoizedDocRef changes.
 
+  if(memoizedDocRef && !(memoizedDocRef as any).__memo && process.env.NODE_ENV !== 'production') {
+    console.warn('useDoc: reference was not properly memoized using useMemoFirebase. This may cause infinite re-renders.', memoizedDocRef);
+  }
+
   return { data, isLoading, error };
 }
